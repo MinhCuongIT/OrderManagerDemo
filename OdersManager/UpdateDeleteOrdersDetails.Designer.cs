@@ -194,6 +194,7 @@
             this.txtOrderID.Name = "txtOrderID";
             this.txtOrderID.Size = new System.Drawing.Size(112, 20);
             this.txtOrderID.TabIndex = 0;
+            this.txtOrderID.Validating += new System.ComponentModel.CancelEventHandler(this.txtOrderID_Validating);
             // 
             // txtCustomerID
             // 

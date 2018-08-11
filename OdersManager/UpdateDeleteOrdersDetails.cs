@@ -64,13 +64,22 @@ namespace OdersManager
         /// </summary>
         private DataSet dsAllData;
         /// <summary>
+        /// Đối tượng lưu giữ OrderID hiện tại
+        /// </summary>
+        DataRow drCurrentOrder;
+        /// <summary>
+        /// Đối tượng hiển thị các lỗi lên màn hình
+        /// </summary>
+        ErrorProvider errorProvider;
+        #endregion
+
+        #region Properties
+        /// <summary>
         /// Lưu giữ Control cuối cùng được kích hoạt
         /// </summary>
         private Control lastControlActive;
         #endregion
-        #region Properties
 
-        #endregion
         #region Constructor
         /// <summary>
         /// Hàm dựng cho form chính
@@ -96,6 +105,8 @@ namespace OdersManager
            this. dsAllData = new DataSet();
             //Khởi tạo lastControlActive
             this.lastControlActive = new Control();
+            //Khởi tạo errorProvider
+            errorProvider = new ErrorProvider();
             //Thêm sự kiện cho các Control trong chương trình
             foreach (Control control in this.Controls)
             {
@@ -105,11 +116,22 @@ namespace OdersManager
                 }
             }
         }
-
-
-
         #endregion
+
         #region Events
+        /// <summary>
+        /// Kiểm tra tính hợp lệ của dữ liệu trong txtOrderID
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void txtOrderID_Validating(object sender, CancelEventArgs e)
+        {
+            //Nếu dữ liệu trong txtOrderID là rỗng thì dừng lại
+            if (string.IsNullOrEmpty(this.txtOrderID.Text))
+            {
+                return;
+            }
+        }
         /// <summary>
         /// Gán sự kiện cho các control
         /// </summary>
@@ -126,26 +148,25 @@ namespace OdersManager
         /// <param name="e"></param>
         private void UpdateDeleteOrderDetails_Load(object sender, EventArgs e)
         {
+            //Tải dữ liệu vào dataset
             LoadData();
-
+            //Thêm các ràng buộc cho các bảng
             AddRelations();
-
+            //Thêm các cột cần thiết cho datagridview
             AddColumns();
-
+            //Thêm sự kiện cho table trong dataset để cập nhật total
             AddDataTableEvents();
-
+            //Gán dữ liệu cho grid
             BindGridData();
-
+            //Định dạng lại các control và thêm tính năng autocomplete
             FormatControls();
-
+            //Xóa các control
             ClearControlData();
+            //Set focus cho IDorderID
+            this.txtOrderID.Focus();
         }
-
-        
-
-
-
         #endregion
+
         #region Method
         /// <summary>
         /// Xóa các control và enable những control cần thiết
@@ -158,17 +179,32 @@ namespace OdersManager
             this.txtCustomerName.Clear();
             this.txtEmployeeID.Clear();
             this.txtEmployeeName.Clear();
+            //Xóa bỏ đối tượng lưu trữ order hiện tại
+            this.drCurrentOrder = null;
+            //Xóa dữ liệu trong table Order Details trong dataset
+            this.dsAllData.Tables["Order Details"].Clear();
             //Thiết lập trạng thái cho các controls
             SetStateControl(true);
         }
-
-        
-
         /// <summary>
         /// Xử lí định dạng và thêm chức năng autocomplete cho các Textbox
         /// </summary>
         private void FormatControls()
         {
+            //Thêm tính năng autocomlete cho txtOrderID
+            this.txtOrderID.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            this.txtOrderID.AutoCompleteSource = AutoCompleteSource.CustomSource;
+            this.txtOrderID.AutoCompleteCustomSource = GetAutoCompleteStringCollection("Orders", "OrderID");
+
+            //Thêm tính năng autocomlete cho txtCustomerID
+            this.txtCustomerID.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            this.txtCustomerID.AutoCompleteSource = AutoCompleteSource.CustomSource;
+            this.txtCustomerID.AutoCompleteCustomSource = GetAutoCompleteStringCollection("Customers", "CustomerID");
+
+            //Thêm tính năng autocomlete cho txtEmployeeID
+            this.txtEmployeeID.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            this.txtEmployeeID.AutoCompleteSource = AutoCompleteSource.CustomSource;
+            this.txtEmployeeID.AutoCompleteCustomSource = GetAutoCompleteStringCollection("Employees", "EmployeeID");
 
         }
         /// <summary>
@@ -236,7 +272,47 @@ namespace OdersManager
             //Set enable cho datagridview
             this.dgvOrderDetails.Enabled = !this.isDeleteMode && !isEnableOrderID;
         }
+        /// <summary>
+        /// Xử lí tính toán total
+        /// </summary>
+        /// <param name="orderID"></param>
+        /// <returns></returns>
+        private decimal CalculateTotalDetails(string orderID)
+        {
+            decimal total = 0;
+            DataRow[] drRows = this.dsAllData.Tables["Order Details"].Select("OrderID = " + orderID, "OrderID ASC", DataViewRowState.CurrentRows);
+            foreach (DataRow row in drRows)
+            {
+                total += Convert.ToDecimal(row["Sum"]);
+            }
+            return total;
+        }
+        /// <summary>
+        /// Set giá trị mặc định để khi thêm dòng mới không bị lỗi
+        /// </summary>
+        private void SetDefaultValueOrderDetails()
+        {
+            this.dsAllData.Tables["Order Details"].Columns["OrderID"].DefaultValue = this.txtOrderID.Text;
+            this.dsAllData.Tables["Order Details"].Columns["ProductName"].DefaultValue = string.Empty;
+            this.dsAllData.Tables["Order Details"].Columns["UnitPrice"].DefaultValue = 0;
+            this.dsAllData.Tables["Order Details"].Columns["Quantity"].DefaultValue = 1;
+            this.dsAllData.Tables["Order Details"].Columns["Discount"].DefaultValue = 0;
+        }
+        /// <summary>
+        /// Lấy dữ liệu làm AutoComplete cho các Textbox
+        /// </summary>
+        /// <param name="table">Tên bảng cần lấy</param>
+        /// <param name="column">Tên cột cần lấy</param>
+        /// <returns></returns>
+        private AutoCompleteStringCollection GetAutoCompleteStringCollection(string table, string column)
+        {
+            AutoCompleteStringCollection acsc = new AutoCompleteStringCollection();
+            for (int i = 0; i < this.dsAllData.Tables[table].Rows.Count; i++)
+            {
+                acsc.Add(this.dsAllData.Tables[table].Rows[i][column].ToString());
+            }
+            return acsc;
+        }
         #endregion
-
     }
 }
